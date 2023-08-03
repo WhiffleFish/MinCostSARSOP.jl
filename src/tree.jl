@@ -31,7 +31,7 @@ struct SARSOPTree
     cache::TreeCache
     prune_data::PruneData
 
-    Γ::Vector{AlphaVec{Int}}
+    Γ::Vector{AlphaVec}
 end
 
 

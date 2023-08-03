@@ -8,51 +8,62 @@ end
 
 function update!(pomdp::ModifiedSparseTabular, M::BlindLowerBound, Γ, S, A, _)
     residuals = M.residuals
-    (;T,R,O) = pomdp
+    (;T,R,C,O) = pomdp
     γ = discount(pomdp)
 
     for a ∈ A
-        α_a = M.α_tmp
+        αr_a = copy(M.α_tmp)
+        αc_a = copy(M.α_tmp)
         T_a = T[a]
         nz = nonzeros(T_a)
         rv = rowvals(T_a)
         for s ∈ S
-            Vb′ = 0.0
+            Vcb′ = 0.0
+            Vrb′ = 0.0
             for idx ∈ nzrange(T_a, s)
                 sp = rv[idx]
                 p = nz[idx]
-                Vb′ += p*Γ[a][sp]
+                Vrb′ += p*Γ[a].reward[sp]
+                Vcb′ += p*Γ[a].cost[sp]
             end
-            α_a[s] = R[s,a] + γ*Vb′
+            αr_a[s] = R[s,a] + γ*Vrb′
+            αc_a[s] = C[s,a] + γ*Vcb′
         end
-        res = bel_res(Γ[a], α_a)
+        res = max(bel_res(Γ[a].reward, αr_a), bel_res(Γ[a].cost, αc_a))
         residuals[a] = res
-        copyto!(Γ[a], α_a)
+        Γ[a] = AlphaVec(αr_a, αc_a, a)
     end
     return Γ
 end
 
-function worst_state_alphas(pomdp::ModifiedSparseTabular, S, A)
-    (;R,T) = pomdp
-    S = states(pomdp)
-    A = actions(pomdp)
+function worst_state_alphas(pomdp::TabularCPOMDP, S, A)
+    (;R, C, T) = pomdp
     γ = discount(pomdp)
 
-    Γ = [zeros(length(S)) for _ in eachindex(A)]
+    Γ = [AlphaVec(zeros(length(S)), zeros(length(S)), a) for a ∈ A]
     for a ∈ A
         nz = nonzeros(T[a])
         rv = rowvals(T[a])
         for s ∈ S
             rsa = R[s, a]
+            csa = C[s, a]
+            
+            c_max = -Inf
             r_min = Inf
             for idx ∈ nzrange(T[a], s)
                 sp = rv[idx]
                 p = nz[idx]
+                c′ = p*C[sp, a]
                 r′ = p*R[sp, a]
-                r_min = min(r′, r_min)
+                if c′ > c_max
+                    c_max = c′
+                    r_min = r′
+                end
             end
-            r_min = r_min===Inf ? -Inf : r_min
-            Γ[a][s] = rsa + γ / (1 - γ) * r_min
+            r_min = r_min=== Inf ? -Inf : r_min
+            c_max = c_max===-Inf ?  Inf : c_max
+            Γ[a].reward[s] = rsa + γ / (1 - γ) * r_min
+            Γ[a].cost[s] = csa + γ / (1 - γ) * c_max
         end
     end
     return Γ
@@ -76,5 +87,5 @@ function POMDPs.solve(sol::BlindLowerBound, pomdp::ModifiedSparseTabular)
         all(res_criterion,residuals) && break
     end
 
-    return AlphaVectorPolicy(pomdp, Γ, A)
+    return Γ
 end

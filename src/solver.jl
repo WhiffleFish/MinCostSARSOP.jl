@@ -1,4 +1,4 @@
-Base.@kwdef struct SARSOPSolver{LOW,UP} <: Solver
+Base.@kwdef struct MinCostSARSOPSolver{LOW,UP} <: Solver
     epsilon::Float64    = 0.5
     precision::Float64  = 1e-3
     kappa::Float64      = 0.5
@@ -11,7 +11,7 @@ Base.@kwdef struct SARSOPSolver{LOW,UP} <: Solver
     prunethresh::Float64= 0.10
 end
 
-function POMDPTools.solve_info(solver::SARSOPSolver, pomdp::POMDP)
+function POMDPTools.solve_info(solver::MinCostSARSOPSolver, pomdp::POMDP)
     tree = SARSOPTree(solver, pomdp)
 
     t0 = time()
@@ -35,4 +35,4 @@ function POMDPTools.solve_info(solver::SARSOPSolver, pomdp::POMDP)
     )
 end
 
-POMDPs.solve(solver::SARSOPSolver, pomdp::POMDP) = first(solve_info(solver, pomdp))
+POMDPs.solve(solver::MinCostSARSOPSolver, pomdp::POMDP) = first(solve_info(solver, pomdp))

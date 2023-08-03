@@ -5,7 +5,7 @@ function sample!(sol, tree)
     sample_points(sol, tree, 1, L, U, 0, sol.epsilon*root_diff(tree))
 end
 
-function sample_points(sol::SARSOPSolver, tree::SARSOPTree, b_idx::Int, L, U, t, ϵ)
+function sample_points(sol::MinCostSARSOPSolver, tree::SARSOPTree, b_idx::Int, L, U, t, ϵ)
     tree.b_pruned[b_idx] = false
     if !tree.is_real[b_idx]
         tree.is_real[b_idx] = true
@@ -40,7 +40,7 @@ function sample_points(sol::SARSOPSolver, tree::SARSOPTree, b_idx::Int, L, U, t,
     end
 end
 
-belief_reward(tree, b, a) = dot(@view(tree.pomdp.R[:,a]), b)
+belief_reward(tree, b, a) = -dot(dropdims(tree.pomdp.C;dims=3)[:,a], b)
 
 function max_r_and_q(tree::SARSOPTree, b_idx::Int)
     Q̲ = -Inf

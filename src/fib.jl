@@ -16,13 +16,14 @@ function bel_res(α1, α2)
     return max_res
 end
 
-function update!(𝒫::ModifiedSparseTabular, M::FastInformedBound, Γ, 𝒮, 𝒜, 𝒪)
-    (;R,T,O) = 𝒫
+function update!(𝒫::TabularCPOMDP, M::FastInformedBound, Γ, 𝒮, 𝒜, 𝒪)
+    (;C,R,T,O) = 𝒫
     γ = discount(𝒫)
     residuals = M.residuals
 
     for a ∈ 𝒜
-        α_a = M.α_tmp
+        αr_a = copy(M.α_tmp) # TODO: actually use the cache
+        αc_a = copy(M.α_tmp)
         T_a = T[a]
         O_a = O[a]
         nz = nonzeros(T_a)
@@ -30,37 +31,49 @@ function update!(𝒫::ModifiedSparseTabular, M::FastInformedBound, Γ, 𝒮, �
 
         for s ∈ 𝒮
             rsa = R[s,a]
+            csa = C[s,a]
 
-            if isinf(rsa)
-                α_a[s] = -Inf
+            if isinf(csa)
+                αr_a[s] = -Inf
+                αc_a[s] = Inf
             elseif isterminal(𝒫,s)
-                α_a[s] = 0.
+                αr_a[s] = 0.
+                αc_a[s] = 0.
             else
-                tmp = 0.0
+                tmp_c = 0.0
+                tmp_r = 0.0
                 for o ∈ 𝒪
                     O_ao = @view O_a[:,o] # FIXME: slow sparse indexing for inner O_ao[sp]
-                    Vmax = -Inf
+                    Vc_opt = Inf
+                    Vr_opt = -Inf
                     for α′ ∈ Γ
-                        Vb′ = 0.0
+                        Vcb′ = 0.0
+                        Vrb′ = 0.0
                         for idx ∈ nzrange(T_a, s)
                             sp = rv[idx]
                             Tprob = nz[idx]
-                            Vb′ += O_ao[sp]*Tprob*α′[sp]
+                            Vcb′ += O_ao[sp]*Tprob*α′.cost[sp]
+                            Vrb′ += O_ao[sp]*Tprob*α′.reward[sp]
                         end
-                        Vb′ > Vmax && (Vmax = Vb′)
+                        if Vcb′ < Vc_opt
+                            Vc_opt = Vcb′
+                            Vr_opt = Vrb′
+                        end
                     end
-                    tmp += Vmax
+                    tmp_c += Vc_opt
+                    tmp_r += Vr_opt
                 end
-                α_a[s] = rsa + γ*tmp
+                αc_a[s] = csa + γ*tmp_c
+                αr_a[s] = rsa + γ*tmp_r
             end
         end
-        res = bel_res(Γ[a], α_a)
+        res = max(bel_res(Γ[a].reward, αr_a), bel_res(Γ[a].cost, αc_a))
         residuals[a] = res
-        copyto!(Γ[a], α_a)
+        Γ[a] = AlphaVec(αr_a, αc_a, a)
     end
 end
 
-function POMDPs.solve(sol::FastInformedBound, pomdp::POMDP)
+function POMDPs.solve(sol::FastInformedBound, pomdp::TabularCPOMDP)
     t0 = time()
     S = ordered_states(pomdp)
     A = ordered_actions(pomdp)
@@ -68,12 +81,14 @@ function POMDPs.solve(sol::FastInformedBound, pomdp::POMDP)
     γ = discount(pomdp)
 
     init_value = sol.init_value
-    Γ = if isfinite(sol.init_value)
-        [fill(sol.init_value, length(S)) for a ∈ A]
+    Γ = if isfinite(init_value)
+        [AlphaVec(fill(init_value, length(S)), fill(init_value, length(S)), a) for a ∈ A]
     else
+        c_min = maximum(only(costs(pomdp, s, a)) for a ∈ A, s ∈ S)
         r_max = maximum(reward(pomdp, s, a) for a ∈ A, s ∈ S)
-        V̄ = r_max/(1-γ)
-        [fill(V̄, length(S)) for a ∈ A]
+        V̄c = c_min/(1-γ)
+        V̄r = r_max/(1-γ)
+        [AlphaVec(fill(V̄r, length(S)), fill(V̄c, length(S)), a) for a ∈ A]
     end
     resize!(sol.α_tmp, length(S))
     residuals = resize!(sol.residuals, length(A))
@@ -86,5 +101,5 @@ function POMDPs.solve(sol::FastInformedBound, pomdp::POMDP)
         all(res_criterion,residuals) && break
     end
 
-    return AlphaVectorPolicy(pomdp, Γ, A)
+    return (Γ, A)
 end

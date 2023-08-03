@@ -1,11 +1,11 @@
-module NativeSARSOP
+module MinCostSARSOP
 
 using POMDPs
 using POMDPTools
 using SparseArrays
 using LinearAlgebra
 
-export SARSOPSolver, SARSOPTree
+export MinCostSARSOPSolver, SARSOPTree
 
 include("sparse_tabular.jl")
 include("fib.jl")

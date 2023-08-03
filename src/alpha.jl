@@ -1,12 +1,11 @@
-struct AlphaVec{A} <: AbstractVector{Float64}
-    alpha::Vector{Float64}
-    action::A
+struct AlphaVec <: AbstractVector{Float64}
+    reward::Vector{Float64}
+    cost::Vector{Float64} # TODO: find a way to generalize to matrix
+    action::Int
 end
 
-@inline Base.length(v::AlphaVec) = length(v.alpha)
+@inline Base.length(v::AlphaVec) = length(v.cost)
 
-@inline Base.size(v::AlphaVec) = size(v.alpha)
+@inline Base.size(v::AlphaVec) = size(v.cost)
 
-@inline Base.getindex(v::AlphaVec, i) = v.alpha[i]
-
-@inline Base.setindex!(v::AlphaVec, x, i) = setindex!(v.alpha, x, i)
+@inline Base.getindex(v::AlphaVec, i) = -v.cost[i]

@@ -1,40 +1,38 @@
-struct ModifiedSparseTabular <: POMDP{Int,Int,Int}
+struct TabularCPOMDP <: POMDP{Int,Int,Int}
     T::Vector{SparseMatrixCSC{Float64, Int64}} # T[a][sp, s]
     R::Array{Float64, 2} # R[s,a]
     O::Vector{SparseMatrixCSC{Float64, Int64}} # O[a][sp, o]
-    isterminal::SparseVector{Bool, Int}
+    C::Matrix{Float64} # C[s,a]
+    isterminal::BitVector
     initialstate::SparseVector{Float64, Int}
+    constraints::Vector{Float64}
     discount::Float64
 end
 
-function ModifiedSparseTabular(pomdp::POMDP)
+function TabularCPOMDP(pomdp::CPOMDP)
     S = ordered_states(pomdp)
     A = ordered_actions(pomdp)
     O = ordered_observations(pomdp)
 
-    terminal = _vectorized_terminal(pomdp, S)
-    T = _tabular_transitions(pomdp, S, A, terminal)
-    R = _tabular_rewards(pomdp, S, A, terminal)
+    T = _tabular_transitions(pomdp, S, A)
+    R = _tabular_rewards(pomdp, S, A)
     O = _tabular_observations(pomdp, S, A, O)
+    C = _tabular_costs(pomdp, S, A)
+    term = _vectorized_terminal(pomdp, S)
     b0 = _vectorized_initialstate(pomdp, S)
-    return ModifiedSparseTabular(T,R,O,terminal,b0,discount(pomdp))
+    return TabularCPOMDP(T,R,O,C,term,b0,pomdp.constraints,discount(pomdp))
 end
 
-function _tabular_transitions(pomdp, S, A, terminal)
+function _tabular_transitions(pomdp, S, A)
     T = [Matrix{Float64}(undef, length(S), length(S)) for _ ∈ eachindex(A)]
     for i ∈ eachindex(T)
-        _fill_transitions!(pomdp, T[i], S, A[i], terminal)
+        _fill_transitions!(pomdp, T[i], S, A[i])
     end
     T
 end
 
-function _fill_transitions!(pomdp, T, S, a, terminal)
+function _fill_transitions!(pomdp, T, S, a)
     for (s_idx, s) ∈ enumerate(S)
-        if terminal[s_idx]
-            T[:, s_idx] .= 0.0
-            T[s_idx, s_idx] = 1.0
-            continue
-        end
         Tsa = transition(pomdp, s, a)
         for (sp_idx, sp) ∈ enumerate(S)
             T[sp_idx, s_idx] = pdf(Tsa, sp)
@@ -43,13 +41,9 @@ function _fill_transitions!(pomdp, T, S, a, terminal)
     T
 end
 
-function _tabular_rewards(pomdp, S, A, terminal)
+function _tabular_rewards(pomdp, S, A)
     R = Matrix{Float64}(undef, length(S), length(A))
     for (s_idx, s) ∈ enumerate(S)
-        if terminal[s_idx]
-            R[s_idx, :] .= 0.0
-            continue
-        end
         for (a_idx, a) ∈ enumerate(A)
             R[s_idx, a_idx] = reward(pomdp, s, a)
         end
@@ -75,6 +69,17 @@ function _fill_observations!(pomdp, Oa, S, a, O)
     Oa
 end
 
+function _tabular_costs(pomdp, S, A)
+    @assert isone(ConstrainedPOMDPs.constraint_size(pomdp))
+    C = Matrix{Float64}(undef, length(S), length(A))
+    for (s_idx,s) ∈ enumerate(S)
+        for (a_idx,a) ∈ enumerate(A)
+            C[s_idx, a_idx] = only(costs(pomdp, s, a))
+        end
+    end
+    C
+end
+
 function _vectorized_terminal(pomdp, S)
     term = BitVector(undef, length(S))
     @inbounds for i ∈ eachindex(term,S)
@@ -92,17 +97,19 @@ function _vectorized_initialstate(pomdp, S)
     return sparse(b0_vec)
 end
 
-POMDPTools.ordered_states(pomdp::ModifiedSparseTabular) = axes(pomdp.R, 1)
-POMDPs.states(pomdp::ModifiedSparseTabular) = ordered_states(pomdp)
-POMDPTools.ordered_actions(pomdp::ModifiedSparseTabular) = eachindex(pomdp.T)
-POMDPs.actions(pomdp::ModifiedSparseTabular) = ordered_actions(pomdp)
-POMDPTools.ordered_observations(pomdp::ModifiedSparseTabular) = axes(first(pomdp.O), 2)
-POMDPs.observations(pomdp::ModifiedSparseTabular) = ordered_observations(pomdp)
+POMDPTools.ordered_states(pomdp::TabularCPOMDP) = axes(pomdp.R, 1)
+POMDPs.states(pomdp::TabularCPOMDP) = ordered_states(pomdp)
+POMDPTools.ordered_actions(pomdp::TabularCPOMDP) = eachindex(pomdp.T)
+POMDPs.actions(pomdp::TabularCPOMDP) = ordered_actions(pomdp)
+POMDPTools.ordered_observations(pomdp::TabularCPOMDP) = axes(first(pomdp.O), 2)
+POMDPs.observations(pomdp::TabularCPOMDP) = ordered_observations(pomdp)
 
-POMDPs.discount(pomdp::ModifiedSparseTabular) = pomdp.discount
-POMDPs.initialstate(pomdp::ModifiedSparseTabular) = pomdp.initialstate
-POMDPs.isterminal(pomdp::ModifiedSparseTabular, s::Int) = pomdp.isterminal[s]
+POMDPs.discount(pomdp::TabularCPOMDP) = pomdp.discount
 
-n_states(pomdp::ModifiedSparseTabular) = length(states(pomdp))
-n_actions(pomdp::ModifiedSparseTabular) = length(actions(pomdp))
-n_observations(pomdp::ModifiedSparseTabular) = length(observations(pomdp))
+ConstrainedPOMDPs.constraint_size(pomdp::TabularCPOMDP) = size(pomdp.C, 3)
+
+n_states(pomdp::TabularCPOMDP) = length(states(pomdp))
+n_actions(pomdp::TabularCPOMDP) = length(actions(pomdp))
+n_observations(pomdp::TabularCPOMDP) = length(observations(pomdp))
+n_constraints(pomdp::TabularCPOMDP) = size(pomdp.C, 3)
+const n_cost = n_constraints

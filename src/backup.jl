@@ -11,9 +11,9 @@ function max_alpha_val(Γ, b)
     return max_α.alpha
 end
 
-function backup_a!(α, pomdp::ModifiedSparseTabular, cache::TreeCache, a, Γao)
+function backup_a!(α, pomdp::TabularCPOMDP, cache::TreeCache, a, Γao)
     γ = discount(pomdp)
-    R = @view pomdp.R[:,a]
+    R = @view pomdp.C[:,a]
     T_a = pomdp.T[a]
     Z_a = cache.Oᵀ[a]
     Γa = @view Γao[:,:,a]

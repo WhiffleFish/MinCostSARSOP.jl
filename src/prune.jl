@@ -3,7 +3,7 @@
     return p > tree.prune_data.prune_threshold
 end
 
-function prune!(solver::SARSOPSolver, tree::SARSOPTree)
+function prune!(solver::MinCostSARSOPSolver, tree::SARSOPTree)
     prune!(tree)
     if should_prune_alphas(tree)
         prune_alpha!(tree, solver.delta)
