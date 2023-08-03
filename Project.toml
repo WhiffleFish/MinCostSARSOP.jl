@@ -4,6 +4,7 @@ authors = ["Tyler Becker <Tyler.Becker-1@colorado.edu>"]
 version = "0.1.0"
 
 [deps]
+ConstrainedPOMDPs = "7a9489b1-4b84-4e64-8108-bdcab6d54d2c"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 POMDPTools = "7588e00f-9cae-40de-98dc-e0c70c48cdd7"
 POMDPs = "a93abf59-7444-517b-a68a-c42f96afdd7d"

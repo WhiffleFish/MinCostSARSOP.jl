@@ -5,7 +5,7 @@ mutable struct PruneData
 end
 
 struct SARSOPTree
-    pomdp::ModifiedSparseTabular
+    pomdp::TabularCPOMDP
 
     b::Vector{SparseVector{Float64,Int}} # b_idx => belief vector
     b_children::Vector{UnitRange{Int}} # [b_idx][a_idx] => ba_idx
@@ -36,7 +36,7 @@ end
 
 
 function SARSOPTree(solver, pomdp::POMDP)
-    sparse_pomdp = ModifiedSparseTabular(pomdp)
+    sparse_pomdp = TabularCPOMDP(pomdp)
     cache = TreeCache(sparse_pomdp)
 
     upper_policy = solve(solver.init_upper, sparse_pomdp)

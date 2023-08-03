@@ -1,6 +1,7 @@
 module MinCostSARSOP
 
 using POMDPs
+using ConstrainedPOMDPs
 using POMDPTools
 using SparseArrays
 using LinearAlgebra

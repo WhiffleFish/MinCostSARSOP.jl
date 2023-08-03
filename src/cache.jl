@@ -5,7 +5,7 @@ struct TreeCache
     Oᵀ::Vector{SparseMatrixCSC{Float64, Int64}}
 end
 
-function TreeCache(pomdp::ModifiedSparseTabular)
+function TreeCache(pomdp::TabularCPOMDP)
     Ns = n_states(pomdp)
     Na = n_actions(pomdp)
     No = n_observations(pomdp)

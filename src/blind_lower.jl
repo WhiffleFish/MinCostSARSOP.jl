@@ -6,7 +6,7 @@ Base.@kwdef struct BlindLowerBound <: Solver
     residuals::Vector{Float64}  = Float64[]
 end
 
-function update!(pomdp::ModifiedSparseTabular, M::BlindLowerBound, Γ, S, A, _)
+function update!(pomdp::TabularCPOMDP, M::BlindLowerBound, Γ, S, A, _)
     residuals = M.residuals
     (;T,R,C,O) = pomdp
     γ = discount(pomdp)
@@ -69,7 +69,7 @@ function worst_state_alphas(pomdp::TabularCPOMDP, S, A)
     return Γ
 end
 
-function POMDPs.solve(sol::BlindLowerBound, pomdp::ModifiedSparseTabular)
+function POMDPs.solve(sol::BlindLowerBound, pomdp::TabularCPOMDP)
     t0 = time()
     S = ordered_states(pomdp)
     A = ordered_actions(pomdp)
