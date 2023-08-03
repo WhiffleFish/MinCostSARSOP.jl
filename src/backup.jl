@@ -1,22 +1,25 @@
-function max_alpha_val(Γ, b)
-    max_α = first(Γ)
-    max_val = -Inf
+function min_alpha_val(Γ, b)
+    min_α = first(Γ)
+    min_val = Inf
     for α ∈ Γ
-        val = dot(α, b)
-        if val > max_val
-            max_α = α
-            max_val = val
+        val = dot(α.cost, b)
+        if val < min_val
+            min_α = α
+            min_val = val
         end
     end
-    return max_α.alpha
+    return min_α
 end
 
-function backup_a!(α, pomdp::TabularCPOMDP, cache::TreeCache, a, Γao)
+function backup_a!(αr, αc, pomdp::TabularCPOMDP, cache::TreeCache, a, Γao_r, Γao_c)
     γ = discount(pomdp)
-    R = @view pomdp.C[:,a]
+    C = @view pomdp.C[:,a]
+    R = @view pomdp.R[:,a]
     T_a = pomdp.T[a]
     Z_a = cache.Oᵀ[a]
-    Γa = @view Γao[:,:,a]
+    Γa_r = @view Γao_r[:,:,a]
+    Γa_c = @view Γao_c[:,:,a]
+    
 
     Tnz = nonzeros(T_a)
     Trv = rowvals(T_a)
@@ -24,21 +27,28 @@ function backup_a!(α, pomdp::TabularCPOMDP, cache::TreeCache, a, Γao)
     Zrv = rowvals(Z_a)
 
     for s ∈ eachindex(α)
-        v = 0.0
+        vr = 0.0
+        vc = 0.0
         for sp_idx ∈ nzrange(T_a, s)
             sp = Trv[sp_idx]
             p = Tnz[sp_idx]
-            tmp = 0.0
+            tmp_r = 0.0
+            tmp_c = 0.0
             for o_idx ∈ nzrange(Z_a, sp)
                 o = Zrv[o_idx]
                 po = Znz[o_idx]
-                tmp += po*Γa[sp, o]
+                tmp_r += po*Γa_r[sp, o]
+                tmp_c += po*Γa_c[sp, o]
             end
-            v += tmp*p
+            vr += tmp_r*p
+            vc += tmp_c*p
         end
-        α[s] = v
+        αr[s] = vr
+        αc[s] = vc
     end
-    @. α = R + γ*α
+    @. αr = R + γ*αr
+    @. αc = C + γ*αc
+    return αr, αc
 end
 
 function backup!(tree, b_idx)
@@ -57,29 +67,34 @@ function backup!(tree, b_idx)
         for o ∈ O
             bp_idx = tree.ba_children[ba_idx][o]
             bp = tree.b[bp_idx]
-            Γao[:,o,a] .= max_alpha_val(Γ, bp)
+            _α = min_alpha_val(Γ, bp)
+            Γao_r[:,o,a] .= _α.reward
+            Γao_c[:,o,a] .= _α.cost
         end
     end
 
-    V = -Inf
-    α_a = tree.cache.alpha # zeros(Float64, length(S))
-    best_α = zeros(Float64, length(S))
+    Vc = Inf
+    αr_a = zeros(Float64, length(S))
+    αc_a = zeros(Float64, length(S))
+    best_αr = zeros(Float64, length(S))
+    best_αc = zeros(Float64, length(S))
     best_action = first(A)
 
     for a ∈ A
-        α_a = backup_a!(α_a, pomdp, tree.cache, a, Γao)
-        Qba = dot(α_a, b)
-        tree.Qa_lower[b_idx][a] = Qba
-        if Qba > V
-            V = Qba
-            best_α .= α_a
+        αr_a, αc_a  = backup_a!(αr_a, αc_a, pomdp, tree.cache, a, Γao_r, Γao_c)
+        Qcba = dot(α_a.cost, b)
+        tree.Qa_lower[b_idx][a] = -Qcba
+        if Qcba < Vc
+            Vc = Qba
+            best_αr .= αr_a
+            best_αc .= αc_a
             best_action = a
         end
     end
 
-    α = AlphaVec(best_α, best_action)
+    α = AlphaVec(best_αr, best_αc, best_action)
     push!(Γ, α)
-    tree.V_lower[b_idx] = V
+    tree.V_lower[b_idx] = -Vc
 end
 
 function backup!(tree)

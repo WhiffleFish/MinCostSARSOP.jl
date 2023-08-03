@@ -40,7 +40,16 @@ function SARSOPTree(solver, pomdp::POMDP)
     cache = TreeCache(sparse_pomdp)
 
     upper_policy = solve(solver.init_upper, sparse_pomdp)
-    corner_values = map(maximum, zip(upper_policy.alphas...))
+    corner_values = zeros(length(states(sparse_pomdp)))
+    for s ∈ states(sparse_pomdp)
+        v_max = -Inf
+        for α ∈ upper_policy
+            v = α[s]
+            if v > v_max
+                v_max = v
+            end 
+        end
+    end
 
     tree = SARSOPTree(
         sparse_pomdp,
@@ -64,7 +73,7 @@ function SARSOPTree(solver, pomdp::POMDP)
         BitVector(),
         cache,
         PruneData(0,0,solver.prunethresh),
-        AlphaVec{Int}[]
+        AlphaVec[]
     )
     return insert_root!(solver, tree, _initialize_belief(pomdp, initialstate(pomdp)))
 end
@@ -93,9 +102,8 @@ function insert_root!(solver, tree::SARSOPTree, b)
     pomdp = tree.pomdp
 
     Γ_lower = solve(solver.init_lower, pomdp)
-    for (α,a) ∈ alphapairs(Γ_lower)
-        new_val = dot(α, b)
-        push!(tree.Γ, AlphaVec(α, a))
+    for α ∈ Γ_lower
+        push!(tree.Γ, α)
     end
     tree.prune_data.last_Γ_size = length(tree.Γ)
 

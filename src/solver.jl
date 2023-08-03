@@ -25,7 +25,7 @@ function POMDPTools.solve_info(solver::MinCostSARSOPSolver, pomdp::POMDP)
 
     pol = AlphaVectorPolicy(
         pomdp,
-        getproperty.(tree.Γ, :alpha),
+        [-α.cost for α ∈ tree.Γ],
         ordered_actions(pomdp)[getproperty.(tree.Γ, :action)]
     )
     return pol, (;

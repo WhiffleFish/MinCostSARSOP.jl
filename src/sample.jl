@@ -40,7 +40,7 @@ function sample_points(sol::MinCostSARSOPSolver, tree::SARSOPTree, b_idx::Int, L
     end
 end
 
-belief_reward(tree, b, a) = -dot(dropdims(tree.pomdp.C;dims=3)[:,a], b)
+belief_reward(tree, b, a) = -dot(@view(tree.pomdp.C[:,a]), b)
 
 function max_r_and_q(tree::SARSOPTree, b_idx::Int)
     Q̲ = -Inf

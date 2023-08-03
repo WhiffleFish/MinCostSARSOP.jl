@@ -101,5 +101,5 @@ function POMDPs.solve(sol::FastInformedBound, pomdp::TabularCPOMDP)
         all(res_criterion,residuals) && break
     end
 
-    return (Γ, A)
+    return Γ
 end
