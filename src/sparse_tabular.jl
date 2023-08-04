@@ -44,8 +44,12 @@ end
 function _tabular_rewards(pomdp, S, A)
     R = Matrix{Float64}(undef, length(S), length(A))
     for (s_idx, s) ∈ enumerate(S)
-        for (a_idx, a) ∈ enumerate(A)
-            R[s_idx, a_idx] = reward(pomdp, s, a)
+        if isterminal(pomdp, s)
+            R[s_idx,:] .= 0.0
+        else
+            for (a_idx, a) ∈ enumerate(A)
+                R[s_idx, a_idx] = reward(pomdp, s, a)
+            end
         end
     end
     R
