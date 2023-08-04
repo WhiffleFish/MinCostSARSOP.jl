@@ -95,7 +95,9 @@ function prune_alpha!(tree::SARSOPTree, δ)
             a lot of duplicates, but the equality check can slow things down
             if α's are sufficiently diverse.
             =#
-            if a1_dominant
+            if a1_dominant && a2_dominant
+                break # rewards may be different so prevent pruning alpha with higher reward
+            elseif a1_dominant
                 pruned[j] = true
             elseif a2_dominant
                 pruned[i] = true
