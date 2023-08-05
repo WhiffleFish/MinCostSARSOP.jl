@@ -8,7 +8,6 @@ using LinearAlgebra
 
 export MinCostSARSOPSolver, SARSOPTree
 
-include("sparse_tabular.jl")
 include("fib.jl")
 include("cache.jl")
 include("blind_lower.jl")
