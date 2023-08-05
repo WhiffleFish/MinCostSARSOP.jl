@@ -14,31 +14,13 @@ function TabularCPOMDP(pomdp::CPOMDP)
     A = ordered_actions(pomdp)
     O = ordered_observations(pomdp)
 
-    T = _tabular_transitions(pomdp, S, A)
+    T = POMDPTools.ModelTools.transition_matrix_a_s_sp(pomdp)
     R = _tabular_rewards(pomdp, S, A)
-    O = _tabular_observations(pomdp, S, A, O)
+    O = POMDPTools.ModelTools.observation_matrix_a_sp_o(pomdp)
     C = _tabular_costs(pomdp, S, A)
     term = _vectorized_terminal(pomdp, S)
     b0 = _vectorized_initialstate(pomdp, S)
     return TabularCPOMDP(T,R,O,C,term,b0,pomdp.constraints,discount(pomdp))
-end
-
-function _tabular_transitions(pomdp, S, A)
-    T = [Matrix{Float64}(undef, length(S), length(S)) for _ ∈ eachindex(A)]
-    for i ∈ eachindex(T)
-        _fill_transitions!(pomdp, T[i], S, A[i])
-    end
-    T
-end
-
-function _fill_transitions!(pomdp, T, S, a)
-    for (s_idx, s) ∈ enumerate(S)
-        Tsa = transition(pomdp, s, a)
-        for (sp_idx, sp) ∈ enumerate(S)
-            T[sp_idx, s_idx] = pdf(Tsa, sp)
-        end
-    end
-    T
 end
 
 function _tabular_rewards(pomdp, S, A)
@@ -53,24 +35,6 @@ function _tabular_rewards(pomdp, S, A)
         end
     end
     R
-end
-
-function _tabular_observations(pomdp, S, A, O)
-    _O = [Matrix{Float64}(undef, length(S), length(O)) for _ ∈ eachindex(A)]
-    for i ∈ eachindex(_O)
-        _fill_observations!(pomdp, _O[i], S, A[i], O)
-    end
-    _O
-end
-
-function _fill_observations!(pomdp, Oa, S, a, O)
-    for (sp_idx, sp) ∈ enumerate(S)
-        obs_dist = observation(pomdp, a, sp)
-        for (o_idx, o) ∈ enumerate(O)
-            Oa[sp_idx, o_idx] = pdf(obs_dist, o)
-        end
-    end
-    Oa
 end
 
 function _tabular_costs(pomdp, S, A)
